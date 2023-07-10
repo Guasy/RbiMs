@@ -78,37 +78,52 @@ read_dbcan3 <- function(dbcan_path,
       ) %>%
       calc_abundance(analysis = "dbCAN") %>%
       dplyr::select(-.data$Scaffold_name)
-  ) %>% group_by(.data$Bin_name,
-                 .data$dbCAN,
-                 .data$domain_name,
-                 .data$Signalp) %>% summarise_if(is.numeric, sum) #joining data
+  )
+  
+  dbcan_df_format <- dbcan_df_format %>% group_by(
+                                       dbcan_df_format[,0],
+                                       dbcan_df_format[,1],
+                                       dbcan_df_format[,2],
+                                       dbcan_df_format[,3]) %>% 
+                        summarise_if(is.numeric, sum) #joining data
+  
   
   # Reformatting data ----------------------------------------------------------####
   
-  dbcan_df_reformat <- dbcan_df_format %>% dplyr::select(-.data$Signalp) %>%
+  filtered_df_reformat <- dbcan_df_format[,2]
+   
+  
+  dbcan_df_reformat <- filtered_df_reformat %>% 
     mutate(
       domain_name = case_when(
-        str_detect(.data$dbCAN, "CBM") ~
+        str_detect(filtered_df_reformat[,1], "CBM") ~
           "carbohydrate-binding module [CBM]",
-        str_detect(.data$dbCAN, "CE") ~
+        str_detect(filtered_df_reformat[,1], "CE") ~
           "carbohydrate esterases [CEs]",
-        str_detect(.data$dbCAN, "GH") ~
+        str_detect(filtered_df_reformat[,1], "GH") ~
           "glycoside hydrolases [GHs]",
-        str_detect(.data$dbCAN, "GT") ~
+        str_detect(filtered_df_reformat[,1], "GT") ~
           "glycosyltransferases [GTs]",
-        str_detect(.data$dbCAN, "PL") ~
+        str_detect(filtered_df_reformat[,1], "PL") ~
           "polysaccharide lyases [PLs]"
       )
-    ) %>% group_by(.data$dbCAN, .data$Bin_name, .data$domain_name) %>% summarize_if(is.numeric, sum) %>%   pivot_wider(names_from = "Bin_name", values_from = "Abundance") %>% ungroup() %>% mutate_if(is.numeric, ~
-                                                                                                                                                                                                         replace(., is.na(.), 0))
+    )
+  
+  dbcan_df_reformat <- dbcan_df_reformat %>%  
+  group_by(dbcan_df_reformat[,0], dbcan_df_reformat[,1], dbcan_df_reformat[,2]) %>% 
+    summarize_if(is.numeric, sum) %>%  
+    pivot_wider(names_from = colnames(dbcan_df_reformat[,0]), values_from = "Abundance") %>% 
+    ungroup() %>% 
+    mutate_if(is.numeric, ~
+  replace(., is.na(.), 0))
   
   # Messages --------------------------------------------------------------####
   initial <- dim(dbcan_df)
   final <- dim(dbcan_df %>%
                  filter(.data$`#ofTools` > 1))
-  signals <- dbcan_df %>% group_by(.data$Signalp) %>% count()
-  signals2 <-
-    dbcan_df_format %>% group_by(.data$Signalp) %>% count()
+   signals <- dbcan_df %>% group_by(dbcan_df[,3]) %>% count()
+   signals2 <-
+     dbcan_df_format %>% group_by(dbcan_df_format[,3]) %>% count()
   
   
   print(paste0("Input Genes = " , initial[1]))
@@ -118,16 +133,16 @@ read_dbcan3 <- function(dbcan_path,
     round(final[1] / initial[1] * 100),
     "%"
   ))
-  print(paste0("Number of genes with signals = " , sum(signals[-1, ]$n)))
-  print(paste0(
-    "Number of genes with signals that passed filtering = " ,
-    sum(signals2[-1, ]$n)
-  ))
+  # print(paste0("Number of genes with signals = " , sum(signals[-1, ]$n)))
+  # print(paste0(
+  #   "Number of genes with signals that passed filtering = " ,
+  #   sum(signals2[-1, ]$n)
+  # ))
   
   # Profile or not --------------------------------------------------------------####
   
   if (isTRUE(profile)) {
-    output <- dbcan_df_reformat
+    output <- dbcan_df_format
   } else{
     output <- dbcan_df_format
   }
